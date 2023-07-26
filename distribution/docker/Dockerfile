@@ -29,9 +29,17 @@ FROM --platform=linux/amd64 maven:3.8.6-jdk-11-slim as builder
 # This can be unset if the tarball was already built outside of Docker
 ARG BUILD_FROM_SOURCE="true"
 
+# Create a new user
+RUN useradd -m -s /bin/bash user
+
+# Give newuser all privileges
+RUN usermod -aG sudo user
+
 RUN export DEBIAN_FRONTEND=noninteractive \
+    && chmod -R 777 /usr/lib \
     && apt-get -qq update \
-    && apt-get -qq -y install --no-install-recommends python3 python3-yaml
+    && apt-get -qq -y install sudo \
+    && sudo apt-get -qq -y install --no-install-recommends python3.10 python3-yaml
 
 COPY . /src
 WORKDIR /src
@@ -49,7 +57,9 @@ RUN --mount=type=cache,target=/root/.m2 VERSION=$(mvn -B -q org.apache.maven.plu
  && tar -zxf ./distribution/target/apache-druid-${VERSION}-bin.tar.gz -C /opt \
  && mv /opt/apache-druid-${VERSION} /opt/druid
 
-FROM busybox:1.35.0-glibc as busybox
+FROM busybox:1.30.0-glibc as busybox
+
+# libc problem with 1.35
 
 FROM gcr.io/distroless/java$JDK_VERSION-debian11
 LABEL maintainer="Apache Druid Developers <dev@druid.apache.org>"
